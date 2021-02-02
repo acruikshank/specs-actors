@@ -117,7 +117,7 @@ func (st *State) Transfer(store adt.Store, from addr.Address, to addr.Address, v
 	}
 
 	if fromBalance.LessThan(value) {
-		return true, xerrors.Errorf("%v has insufficent funds (%v) to transfer %v to %", from, fromBalance, value, to)
+		return true, xerrors.Errorf("%v has insufficient funds (%v) to transfer %v to %v", from, fromBalance, value, to)
 	}
 
 	var toBalance abi.TokenAmount

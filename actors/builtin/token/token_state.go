@@ -200,3 +200,37 @@ func (st *State) Approve(store adt.Store, approver addr.Address, approvee addr.A
 
 	return nil
 }
+
+func (st *State) Allowance(store adt.Store, approver addr.Address, approvee addr.Address) (abi.TokenAmount, error) {
+	approvals, err := adt.AsMap(store, st.Approvals, builtin.DefaultHamtBitwidth)
+	if err != nil {
+		return big.Zero(), xerrors.Errorf("could not open approvals table: %w", err)
+	}
+
+	var approveesCid cbg.CborCid
+	found, err := approvals.Get(abi.AddrKey(approver), &approveesCid)
+	if err != nil {
+		return big.Zero(), xerrors.Errorf("could not open approvees table for %v: %w", approver, err)
+	}
+
+	if !found {
+		return big.Zero(), nil
+	}
+
+	approvees, err := adt.AsMap(store, cid.Cid(approveesCid), builtin.DefaultHamtBitwidth)
+	if err != nil {
+		return big.Zero(), xerrors.Errorf("could not open approvees table for %v: %w", approver, err)
+	}
+
+	var approveeBalance abi.TokenAmount
+	found, err = approvees.Get(abi.AddrKey(approvee), &approveeBalance)
+	if err != nil {
+		return big.Zero(), xerrors.Errorf("could not get balance for approvee %v: %w", approvee, err)
+	}
+
+	if !found {
+		return big.Zero(), nil
+	}
+
+	return approveeBalance, nil
+}

@@ -26,6 +26,7 @@ func (a Actor) Exports() []interface{} {
 		6:                         a.BalanceOf,
 		7:                         a.Transfer,
 		8:                         a.Approve,
+		9:                         a.Allowance,
 	}
 }
 
@@ -82,6 +83,8 @@ func (a Actor) Constructor(rt runtime.Runtime, params *ConstructorParams) *abi.E
 
 // Get name of token
 func (a Actor) Name(rt runtime.Runtime, value abi.EmptyValue) string {
+	rt.ValidateImmediateCallerAcceptAny()
+
 	var st State
 	rt.StateReadonly(&st)
 	return st.Name
@@ -89,6 +92,8 @@ func (a Actor) Name(rt runtime.Runtime, value abi.EmptyValue) string {
 
 // Get symbol of token
 func (a Actor) Symbol(rt runtime.Runtime, value abi.EmptyValue) string {
+	rt.ValidateImmediateCallerAcceptAny()
+
 	var st State
 	rt.StateReadonly(&st)
 	return st.Symbol
@@ -96,6 +101,8 @@ func (a Actor) Symbol(rt runtime.Runtime, value abi.EmptyValue) string {
 
 // Get decimals used by token
 func (a Actor) Decimals(rt runtime.Runtime, value abi.EmptyValue) uint64 {
+	rt.ValidateImmediateCallerAcceptAny()
+
 	var st State
 	rt.StateReadonly(&st)
 	return st.Decimals
@@ -103,6 +110,8 @@ func (a Actor) Decimals(rt runtime.Runtime, value abi.EmptyValue) uint64 {
 
 // Get total supply of token
 func (a Actor) TotalSupply(rt runtime.Runtime, value abi.EmptyValue) abi.TokenAmount {
+	rt.ValidateImmediateCallerAcceptAny()
+
 	var st State
 	rt.StateReadonly(&st)
 	return st.TotalSupply
@@ -110,6 +119,8 @@ func (a Actor) TotalSupply(rt runtime.Runtime, value abi.EmptyValue) abi.TokenAm
 
 // Get balance for address
 func (a Actor) BalanceOf(rt runtime.Runtime, account addr.Address) abi.TokenAmount {
+	rt.ValidateImmediateCallerAcceptAny()
+
 	// resolve address
 	resolvedAccount, err := builtin.ResolveToIDAddr(rt, account)
 	if err != nil {
@@ -134,6 +145,8 @@ type TransferParams struct {
 
 // Transfer balance to another account
 func (a Actor) Transfer(rt runtime.Runtime, params *TransferParams) *abi.EmptyValue {
+	rt.ValidateImmediateCallerAcceptAny() // only addresses with balances will work
+
 	// Value must be positive
 	if params.Value.LessThanEqual(big.Zero()) {
 		rt.Abortf(exitcode.ErrIllegalArgument, "transfer value must be positive")
@@ -166,6 +179,8 @@ type ApproveParams struct {
 
 // Approve another address to transfer on this account's behalf
 func (a Actor) Approve(rt runtime.Runtime, params *ApproveParams) *abi.EmptyValue {
+	rt.ValidateImmediateCallerAcceptAny()
+
 	// Value must be positive
 	if params.Value.LessThanEqual(big.Zero()) {
 		rt.Abortf(exitcode.ErrIllegalArgument, "transfer value must be positive")
@@ -186,4 +201,36 @@ func (a Actor) Approve(rt runtime.Runtime, params *ApproveParams) *abi.EmptyValu
 	})
 
 	return nil
+}
+
+type AllowanceParams struct {
+	Owner   addr.Address
+	Spender addr.Address
+}
+
+// retrieve how much another address is authorized to spend
+func (a Actor) Allowance(rt runtime.Runtime, params *AllowanceParams) abi.TokenAmount {
+	rt.ValidateImmediateCallerAcceptAny()
+
+	// resolve owner address
+	resolvedOwner, err := builtin.ResolveToIDAddr(rt, params.Owner)
+	if err != nil {
+		rt.Abortf(exitcode.ErrIllegalArgument, "failed to resolve owner address %v: %w", params.Owner, err)
+	}
+
+	// resolve spender address
+	resolvedSpender, err := builtin.ResolveToIDAddr(rt, params.Spender)
+	if err != nil {
+		rt.Abortf(exitcode.ErrIllegalArgument, "failed to resolve spender address %v: %w", params.Spender, err)
+	}
+
+	var st State
+	rt.StateReadonly(&st)
+
+	amount, err := st.Allowance(adt.AsStore(rt), resolvedOwner, resolvedSpender)
+	if err != nil {
+		rt.Abortf(exitcode.ErrIllegalState, err.Error())
+	}
+
+	return amount
 }

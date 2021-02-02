@@ -53,7 +53,8 @@ var MethodsToken = struct {
 	BalanceOf   abi.MethodNum
 	Transfer    abi.MethodNum
 	Approve     abi.MethodNum
-}{MethodConstructor, 2, 3, 4, 5, 6, 7, 8}
+	Allowance   abi.MethodNum
+}{MethodConstructor, 2, 3, 4, 5, 6, 7, 8, 9}
 
 var MethodsPaych = struct {
 	Constructor        abi.MethodNum

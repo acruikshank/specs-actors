@@ -1,7 +1,6 @@
 package main
 
 import (
-	"github.com/filecoin-project/specs-actors/v3/actors/builtin/token"
 	gen "github.com/whyrusleeping/cbor-gen"
 
 	"github.com/filecoin-project/specs-actors/v3/actors/builtin"
@@ -15,6 +14,7 @@ import (
 	"github.com/filecoin-project/specs-actors/v3/actors/builtin/power"
 	"github.com/filecoin-project/specs-actors/v3/actors/builtin/reward"
 	"github.com/filecoin-project/specs-actors/v3/actors/builtin/system"
+	"github.com/filecoin-project/specs-actors/v3/actors/builtin/token"
 	"github.com/filecoin-project/specs-actors/v3/actors/builtin/verifreg"
 	"github.com/filecoin-project/specs-actors/v3/actors/util/smoothing"
 )
@@ -235,6 +235,7 @@ func main() {
 		token.State{},
 		// method params and returns
 		token.ConstructorParams{},
+		token.TokenInfoReturn{},
 		token.TransferParams{},
 		token.ApproveParams{},
 		token.AllowanceParams{},

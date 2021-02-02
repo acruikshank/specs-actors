@@ -19,16 +19,12 @@ type Actor struct{}
 func (a Actor) Exports() []interface{} {
 	return []interface{}{
 		builtin.MethodConstructor: a.Constructor,
-		2:                         a.Name,
-		3:                         a.Symbol,
-		4:                         a.Decimals,
-		5:                         a.TotalSupply,
-		6:                         a.BalanceOf,
-		7:                         a.Transfer,
-		8:                         a.Approve,
-		9:                         a.Allowance,
-		10:                        a.TransferFrom,
-		11:                        a.Icon,
+		2:                         a.TokenInfo,
+		3:                         a.BalanceOf,
+		4:                         a.Transfer,
+		5:                         a.Approve,
+		6:                         a.Allowance,
+		7:                         a.TransferFrom,
 	}
 }
 
@@ -84,49 +80,27 @@ func (a Actor) Constructor(rt runtime.Runtime, params *ConstructorParams) *abi.E
 	return nil
 }
 
-// Get name of token
-func (a Actor) Name(rt runtime.Runtime, value abi.EmptyValue) string {
-	rt.ValidateImmediateCallerAcceptAny()
-
-	var st State
-	rt.StateReadonly(&st)
-	return st.Name
+type TokenInfoReturn struct {
+	Name        string
+	Symbol      string
+	Icon        []byte
+	Decimals    uint64
+	TotalSupply abi.TokenAmount
 }
 
-// Get symbol of token
-func (a Actor) Symbol(rt runtime.Runtime, value abi.EmptyValue) string {
+// Get static parameters of token
+func (a Actor) TokenInfo(rt runtime.Runtime, value *abi.EmptyValue) *TokenInfoReturn {
 	rt.ValidateImmediateCallerAcceptAny()
 
 	var st State
 	rt.StateReadonly(&st)
-	return st.Symbol
-}
-
-// Get symbol of token
-func (a Actor) Icon(rt runtime.Runtime, value abi.EmptyValue) []byte {
-	rt.ValidateImmediateCallerAcceptAny()
-
-	var st State
-	rt.StateReadonly(&st)
-	return st.Icon
-}
-
-// Get decimals used by token
-func (a Actor) Decimals(rt runtime.Runtime, value abi.EmptyValue) uint64 {
-	rt.ValidateImmediateCallerAcceptAny()
-
-	var st State
-	rt.StateReadonly(&st)
-	return st.Decimals
-}
-
-// Get total supply of token
-func (a Actor) TotalSupply(rt runtime.Runtime, value abi.EmptyValue) abi.TokenAmount {
-	rt.ValidateImmediateCallerAcceptAny()
-
-	var st State
-	rt.StateReadonly(&st)
-	return st.TotalSupply
+	return &TokenInfoReturn{
+		Name:        st.Name,
+		Symbol:      st.Symbol,
+		Icon:        st.Icon,
+		Decimals:    st.Decimals,
+		TotalSupply: st.TotalSupply,
+	}
 }
 
 // Get balance for address

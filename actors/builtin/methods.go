@@ -46,17 +46,13 @@ var MethodsMultisig = struct {
 
 var MethodsToken = struct {
 	Constructor  abi.MethodNum
-	Name         abi.MethodNum
-	Symbol       abi.MethodNum
-	Decimals     abi.MethodNum
-	TotalSupply  abi.MethodNum
+	TokenInfo    abi.MethodNum
 	BalanceOf    abi.MethodNum
 	Transfer     abi.MethodNum
 	Approve      abi.MethodNum
 	Allowance    abi.MethodNum
 	TransferFrom abi.MethodNum
-	Icon         abi.MethodNum
-}{MethodConstructor, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11}
+}{MethodConstructor, 2, 3, 4, 5, 6, 7}
 
 var MethodsPaych = struct {
 	Constructor        abi.MethodNum

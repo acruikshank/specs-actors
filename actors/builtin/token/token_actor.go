@@ -27,6 +27,7 @@ func (a Actor) Exports() []interface{} {
 		7:                         a.Transfer,
 		8:                         a.Approve,
 		9:                         a.Allowance,
+		10:                        a.TransferFrom,
 	}
 }
 
@@ -233,4 +234,53 @@ func (a Actor) Allowance(rt runtime.Runtime, params *AllowanceParams) abi.TokenA
 	}
 
 	return amount
+}
+
+type TransferFromParams struct {
+	From  addr.Address
+	To    addr.Address
+	Value abi.TokenAmount
+}
+
+func (a Actor) TransferFrom(rt runtime.Runtime, params *TransferFromParams) *abi.EmptyValue {
+	rt.ValidateImmediateCallerAcceptAny() // only addresses with balances will work
+
+	// Value must be positive
+	if params.Value.LessThanEqual(big.Zero()) {
+		rt.Abortf(exitcode.ErrIllegalArgument, "transfer value must be positive")
+	}
+
+	// resolve from address
+	resolvedFrom, err := builtin.ResolveToIDAddr(rt, params.From)
+	if err != nil {
+		rt.Abortf(exitcode.ErrIllegalArgument, "failed to resolve from account address %v: %w", params.From, err)
+	}
+
+	// resolve to address
+	resolvedTo, err := builtin.ResolveToIDAddr(rt, params.To)
+	if err != nil {
+		rt.Abortf(exitcode.ErrIllegalArgument, "failed to resolve to account address %v: %w", params.To, err)
+	}
+
+	var st State
+	rt.StateTransaction(&st, func() {
+		// confirm sender is allowed to transfer this much (and deduct that value from allowance)
+		insufficientFunds, err := st.DeductAllowance(adt.AsStore(rt), resolvedFrom, rt.Caller(), params.Value)
+		if err != nil {
+			if insufficientFunds {
+				rt.Abortf(exitcode.ErrForbidden, "%v has insufficient allowance to transfer %v for %v",
+					rt.Caller(), params.Value, params.From)
+			}
+		}
+
+		insufficientFunds, err = st.Transfer(adt.AsStore(rt), resolvedFrom, resolvedTo, params.Value)
+		if err != nil {
+			if insufficientFunds {
+				rt.Abortf(exitcode.ErrInsufficientFunds, err.Error())
+			}
+			rt.Abortf(exitcode.ErrIllegalState, "failed to transfer funds: %w", err)
+		}
+	})
+
+	return nil
 }

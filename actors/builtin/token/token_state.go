@@ -234,3 +234,69 @@ func (st *State) Allowance(store adt.Store, approver addr.Address, approvee addr
 
 	return approveeBalance, nil
 }
+
+func (st *State) DeductAllowance(store adt.Store, approver addr.Address, approvee addr.Address, value abi.TokenAmount) (insufficientAllowance bool, err error) {
+	approvals, err := adt.AsMap(store, st.Approvals, builtin.DefaultHamtBitwidth)
+	if err != nil {
+		return false, xerrors.Errorf("could not open approvals table: %w", err)
+	}
+
+	var approveesCid cbg.CborCid
+	found, err := approvals.Get(abi.AddrKey(approver), &approveesCid)
+	if err != nil {
+		return false, xerrors.Errorf("could not open approvees table for %v: %w", approver, err)
+	}
+
+	if !found {
+		return true, xerrors.Errorf("insufficient approval budget (0) for %v to transfer from %v: %w",
+			approvee, approver, err)
+	}
+
+	approvees, err := adt.AsMap(store, cid.Cid(approveesCid), builtin.DefaultHamtBitwidth)
+	if err != nil {
+		return false, xerrors.Errorf("could not open approvees table for %v: %w", approver, err)
+	}
+
+	var approveeBalance abi.TokenAmount
+	found, err = approvees.Get(abi.AddrKey(approvee), &approveeBalance)
+	if err != nil {
+		return false, xerrors.Errorf("could not get balance for approvee %v: %w", approvee, err)
+	}
+
+	if !found {
+		return true, xerrors.Errorf("insufficient approval budget (0) for %v to transfer from %v: %w",
+			approvee, approver, err)
+	}
+
+	if approveeBalance.LessThan(value) {
+		return true, xerrors.Errorf("insufficient approval budget (%v) for %v to transfer from %v: %w",
+			approveeBalance, approvee, approver, err)
+	}
+
+	newApproveeBalance := big.Add(approveeBalance, value.Neg())
+
+	err = approvees.Put(abi.AddrKey(approvee), &newApproveeBalance)
+	if err != nil {
+		return false, xerrors.Errorf("could not get save balance for approvee %v: %w", approvee, err)
+	}
+
+	approveeRoot, err := approvees.Root()
+	if err != nil {
+		return false, xerrors.Errorf("could not get approvees root: %w", err)
+	}
+
+	cbgRoot := cbg.CborCid(approveeRoot)
+	err = approvals.Put(abi.AddrKey(approver), &cbgRoot)
+	if err != nil {
+		return false, xerrors.Errorf("could not get save approvals: %w", err)
+	}
+
+	approvalsRoot, err := approvals.Root()
+	if err != nil {
+		return false, xerrors.Errorf("could not get approvals root: %w", err)
+	}
+
+	st.Approvals = approvalsRoot
+
+	return false, nil
+}

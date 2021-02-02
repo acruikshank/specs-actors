@@ -414,3 +414,141 @@ func (t *ApproveParams) UnmarshalCBOR(r io.Reader) error {
 	}
 	return nil
 }
+
+var lengthBufAllowanceParams = []byte{130}
+
+func (t *AllowanceParams) MarshalCBOR(w io.Writer) error {
+	if t == nil {
+		_, err := w.Write(cbg.CborNull)
+		return err
+	}
+	if _, err := w.Write(lengthBufAllowanceParams); err != nil {
+		return err
+	}
+
+	// t.Owner (address.Address) (struct)
+	if err := t.Owner.MarshalCBOR(w); err != nil {
+		return err
+	}
+
+	// t.Spender (address.Address) (struct)
+	if err := t.Spender.MarshalCBOR(w); err != nil {
+		return err
+	}
+	return nil
+}
+
+func (t *AllowanceParams) UnmarshalCBOR(r io.Reader) error {
+	*t = AllowanceParams{}
+
+	br := cbg.GetPeeker(r)
+	scratch := make([]byte, 8)
+
+	maj, extra, err := cbg.CborReadHeaderBuf(br, scratch)
+	if err != nil {
+		return err
+	}
+	if maj != cbg.MajArray {
+		return fmt.Errorf("cbor input should be of type array")
+	}
+
+	if extra != 2 {
+		return fmt.Errorf("cbor input had wrong number of fields")
+	}
+
+	// t.Owner (address.Address) (struct)
+
+	{
+
+		if err := t.Owner.UnmarshalCBOR(br); err != nil {
+			return xerrors.Errorf("unmarshaling t.Owner: %w", err)
+		}
+
+	}
+	// t.Spender (address.Address) (struct)
+
+	{
+
+		if err := t.Spender.UnmarshalCBOR(br); err != nil {
+			return xerrors.Errorf("unmarshaling t.Spender: %w", err)
+		}
+
+	}
+	return nil
+}
+
+var lengthBufTransferFromParams = []byte{131}
+
+func (t *TransferFromParams) MarshalCBOR(w io.Writer) error {
+	if t == nil {
+		_, err := w.Write(cbg.CborNull)
+		return err
+	}
+	if _, err := w.Write(lengthBufTransferFromParams); err != nil {
+		return err
+	}
+
+	// t.From (address.Address) (struct)
+	if err := t.From.MarshalCBOR(w); err != nil {
+		return err
+	}
+
+	// t.To (address.Address) (struct)
+	if err := t.To.MarshalCBOR(w); err != nil {
+		return err
+	}
+
+	// t.Value (big.Int) (struct)
+	if err := t.Value.MarshalCBOR(w); err != nil {
+		return err
+	}
+	return nil
+}
+
+func (t *TransferFromParams) UnmarshalCBOR(r io.Reader) error {
+	*t = TransferFromParams{}
+
+	br := cbg.GetPeeker(r)
+	scratch := make([]byte, 8)
+
+	maj, extra, err := cbg.CborReadHeaderBuf(br, scratch)
+	if err != nil {
+		return err
+	}
+	if maj != cbg.MajArray {
+		return fmt.Errorf("cbor input should be of type array")
+	}
+
+	if extra != 3 {
+		return fmt.Errorf("cbor input had wrong number of fields")
+	}
+
+	// t.From (address.Address) (struct)
+
+	{
+
+		if err := t.From.UnmarshalCBOR(br); err != nil {
+			return xerrors.Errorf("unmarshaling t.From: %w", err)
+		}
+
+	}
+	// t.To (address.Address) (struct)
+
+	{
+
+		if err := t.To.UnmarshalCBOR(br); err != nil {
+			return xerrors.Errorf("unmarshaling t.To: %w", err)
+		}
+
+	}
+	// t.Value (big.Int) (struct)
+
+	{
+
+		if err := t.Value.UnmarshalCBOR(br); err != nil {
+			return xerrors.Errorf("unmarshaling t.Value: %w", err)
+		}
+
+	}
+	return nil
+}

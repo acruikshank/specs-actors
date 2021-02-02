@@ -20,6 +20,7 @@ var (
 	MultisigActorCodeID         cid.Cid
 	RewardActorCodeID           cid.Cid
 	VerifiedRegistryActorCodeID cid.Cid
+	TokenActorCodeID            cid.Cid
 	CallerTypesSignable         []cid.Cid
 )
 
@@ -44,6 +45,7 @@ func init() {
 		&PaymentChannelActorCodeID:   {name: "fil/3/paymentchannel"},
 		&RewardActorCodeID:           {name: "fil/3/reward"},
 		&VerifiedRegistryActorCodeID: {name: "fil/3/verifiedregistry"},
+		&TokenActorCodeID:            {name: "fil/3/token"},
 		&AccountActorCodeID:          {name: "fil/3/account", signer: true},
 		&MultisigActorCodeID:         {name: "fil/3/multisig", signer: true},
 	} {

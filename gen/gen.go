@@ -1,6 +1,7 @@
 package main
 
 import (
+	"github.com/filecoin-project/specs-actors/v3/actors/builtin/token"
 	gen "github.com/whyrusleeping/cbor-gen"
 
 	"github.com/filecoin-project/specs-actors/v3/actors/builtin"
@@ -229,4 +230,14 @@ func main() {
 		panic(err)
 	}
 
+	if err := gen.WriteTupleEncodersToFile("./actors/builtin/token/cbor_gen.go", "token",
+		// actor state
+		token.State{},
+		// method params and returns
+		token.ConstructorParams{},
+		token.TransferParams{},
+		// other types
+	); err != nil {
+		panic(err)
+	}
 }

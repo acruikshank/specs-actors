@@ -1,0 +1,159 @@
+package token
+
+import (
+	"github.com/ipfs/go-cid"
+
+	addr "github.com/filecoin-project/go-address"
+	"github.com/filecoin-project/go-state-types/abi"
+	"github.com/filecoin-project/go-state-types/big"
+	"github.com/filecoin-project/go-state-types/cbor"
+	"github.com/filecoin-project/go-state-types/exitcode"
+
+	"github.com/filecoin-project/specs-actors/v3/actors/builtin"
+	"github.com/filecoin-project/specs-actors/v3/actors/runtime"
+	"github.com/filecoin-project/specs-actors/v3/actors/util/adt"
+)
+
+type Actor struct{}
+
+func (a Actor) Exports() []interface{} {
+	return []interface{}{
+		builtin.MethodConstructor: a.Constructor,
+		2:                         a.Name,
+		3:                         a.Symbol,
+		4:                         a.Decimals,
+		5:                         a.TotalSupply,
+		6:                         a.BalanceOf,
+		7:                         a.Transfer,
+	}
+}
+
+func (a Actor) Code() cid.Cid {
+	return builtin.TokenActorCodeID
+}
+
+func (a Actor) State() cbor.Er {
+	return new(State)
+}
+
+var _ runtime.VMActor = Actor{}
+
+type ConstructorParams struct {
+	Name          string
+	Symbol        string
+	Decimals      uint64
+	TotalSupply   abi.TokenAmount
+	SystemAccount addr.Address
+}
+
+func (a Actor) Constructor(rt runtime.Runtime, params *ConstructorParams) *abi.EmptyValue {
+	rt.ValidateImmediateCallerIs(builtin.InitActorAddr)
+
+	// Ensure token starts with funds
+	if params.TotalSupply.LessThanEqual(big.Zero()) {
+		rt.Abortf(exitcode.ErrIllegalArgument, "must have initial total supply greater than zero")
+	}
+
+	// Ensure system account exists
+	resolvedSystem, err := builtin.ResolveToIDAddr(rt, params.SystemAccount)
+	if err != nil {
+		rt.Abortf(exitcode.ErrIllegalArgument, "failed to resolve system address %v: %w", params.SystemAccount, err)
+	}
+
+	// Ensure system account is signer
+	codeCID, ok := rt.GetActorCodeCID(resolvedSystem)
+	if !ok {
+		rt.Abortf(exitcode.ErrIllegalArgument, "no code for system address %v", resolvedSystem)
+	}
+	if !builtin.IsPrincipal(codeCID) {
+		rt.Abortf(exitcode.ErrForbidden, "actor %v must be a principal account (%v), was %v", params.SystemAccount,
+			builtin.AccountActorCodeID, codeCID)
+	}
+
+	st, err := ConstructState(adt.AsStore(rt), params.Name, params.Symbol, params.Decimals, params.TotalSupply, resolvedSystem)
+	if err != nil {
+		rt.Abortf(exitcode.ErrIllegalState, "could not initialize state: %w", err)
+	}
+
+	rt.StateCreate(st)
+	return nil
+}
+
+// Get name of token
+func (a Actor) Name(rt runtime.Runtime, value abi.EmptyValue) string {
+	var st State
+	rt.StateReadonly(&st)
+	return st.Name
+}
+
+// Get symbol of token
+func (a Actor) Symbol(rt runtime.Runtime, value abi.EmptyValue) string {
+	var st State
+	rt.StateReadonly(&st)
+	return st.Symbol
+}
+
+// Get decimals used by token
+func (a Actor) Decimals(rt runtime.Runtime, value abi.EmptyValue) uint64 {
+	var st State
+	rt.StateReadonly(&st)
+	return st.Decimals
+}
+
+// Get total supply of token
+func (a Actor) TotalSupply(rt runtime.Runtime, value abi.EmptyValue) abi.TokenAmount {
+	var st State
+	rt.StateReadonly(&st)
+	return st.TotalSupply
+}
+
+// Get balance for address
+func (a Actor) BalanceOf(rt runtime.Runtime, account addr.Address) abi.TokenAmount {
+	// resolve address
+	resolvedAccount, err := builtin.ResolveToIDAddr(rt, account)
+	if err != nil {
+		rt.Abortf(exitcode.ErrIllegalArgument, "failed to resolve account address %v: %w", account, err)
+	}
+
+	var st State
+	rt.StateReadonly(&st)
+
+	balance, err := st.BalanceOf(adt.AsStore(rt), resolvedAccount)
+	if err != nil {
+		rt.Abortf(exitcode.ErrIllegalState, "failed to retrieve balance: %w", err)
+	}
+
+	return balance
+}
+
+type TransferParams struct {
+	To    addr.Address
+	Value abi.TokenAmount
+}
+
+// Transfer balance to another account
+func (a Actor) Transfer(rt runtime.Runtime, params *TransferParams) *abi.EmptyValue {
+	// Value must be positive
+	if params.Value.LessThanEqual(big.Zero()) {
+		rt.Abortf(exitcode.ErrIllegalArgument, "transfer value must be positive")
+	}
+
+	// resolve to address
+	resolvedTo, err := builtin.ResolveToIDAddr(rt, params.To)
+	if err != nil {
+		rt.Abortf(exitcode.ErrIllegalArgument, "failed to resolve account address %v: %w", params.To, err)
+	}
+
+	var st State
+	rt.StateTransaction(&st, func() {
+		insufficientFunds, err := st.Transfer(adt.AsStore(rt), rt.Caller(), resolvedTo, params.Value)
+		if err != nil {
+			if insufficientFunds {
+				rt.Abortf(exitcode.ErrInsufficientFunds, err.Error())
+			}
+			rt.Abortf(exitcode.ErrIllegalState, "failed to transfer funds: %w", err)
+		}
+	})
+
+	return nil
+}

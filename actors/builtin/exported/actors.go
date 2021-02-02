@@ -11,6 +11,7 @@ import (
 	"github.com/filecoin-project/specs-actors/v3/actors/builtin/power"
 	"github.com/filecoin-project/specs-actors/v3/actors/builtin/reward"
 	"github.com/filecoin-project/specs-actors/v3/actors/builtin/system"
+	"github.com/filecoin-project/specs-actors/v3/actors/builtin/token"
 	"github.com/filecoin-project/specs-actors/v3/actors/builtin/verifreg"
 	"github.com/filecoin-project/specs-actors/v3/actors/runtime"
 )
@@ -28,5 +29,6 @@ func BuiltinActors() []runtime.VMActor {
 		reward.Actor{},
 		system.Actor{},
 		verifreg.Actor{},
+		token.Actor{},
 	}
 }

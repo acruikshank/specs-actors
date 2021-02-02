@@ -25,6 +25,7 @@ func (a Actor) Exports() []interface{} {
 		5:                         a.TotalSupply,
 		6:                         a.BalanceOf,
 		7:                         a.Transfer,
+		8:                         a.Approve,
 	}
 }
 
@@ -152,6 +153,35 @@ func (a Actor) Transfer(rt runtime.Runtime, params *TransferParams) *abi.EmptyVa
 				rt.Abortf(exitcode.ErrInsufficientFunds, err.Error())
 			}
 			rt.Abortf(exitcode.ErrIllegalState, "failed to transfer funds: %w", err)
+		}
+	})
+
+	return nil
+}
+
+type ApproveParams struct {
+	Approvee addr.Address
+	Value    abi.TokenAmount
+}
+
+// Approve another address to transfer on this account's behalf
+func (a Actor) Approve(rt runtime.Runtime, params *ApproveParams) *abi.EmptyValue {
+	// Value must be positive
+	if params.Value.LessThanEqual(big.Zero()) {
+		rt.Abortf(exitcode.ErrIllegalArgument, "transfer value must be positive")
+	}
+
+	// resolve approvee address
+	resolvedApprovee, err := builtin.ResolveToIDAddr(rt, params.Approvee)
+	if err != nil {
+		rt.Abortf(exitcode.ErrIllegalArgument, "failed to resolve approvee address %v: %w", params.Approvee, err)
+	}
+
+	var st State
+	rt.StateTransaction(&st, func() {
+		err := st.Approve(adt.AsStore(rt), rt.Caller(), resolvedApprovee, params.Value)
+		if err != nil {
+			rt.Abortf(exitcode.ErrIllegalState, "failed to approve %w: %w", resolvedApprovee, err)
 		}
 	})
 

@@ -5,6 +5,7 @@ import (
 	"github.com/filecoin-project/go-state-types/abi"
 	"github.com/filecoin-project/go-state-types/big"
 	cid "github.com/ipfs/go-cid"
+	cbg "github.com/whyrusleeping/cbor-gen"
 	"golang.org/x/xerrors"
 
 	"github.com/filecoin-project/specs-actors/v3/actors/builtin"
@@ -26,13 +27,16 @@ type State struct {
 
 	// Balance sheet for all token owners
 	Balances cid.Cid // Map, HAMT[address]TokenAmount
+
+	// Approvals to transfer from another account
+	Approvals cid.Cid // MultiMap, HAMT[address]HAMT[address]TokenAmount
 }
 
 func ConstructState(store adt.Store, name string, symbol string, decimals uint64, supply abi.TokenAmount, owner addr.Address) (*State, error) {
 	// create empty map for balances
 	balances, err := adt.MakeEmptyMap(store, builtin.DefaultHamtBitwidth)
 	if err != nil {
-		return nil, xerrors.Errorf("failed to create empty map: %w", err)
+		return nil, xerrors.Errorf("failed to create balances map: %w", err)
 	}
 
 	// store all initial token in owner's account
@@ -47,12 +51,19 @@ func ConstructState(store adt.Store, name string, symbol string, decimals uint64
 		return nil, xerrors.Errorf("failed to get root of balance table: %w", err)
 	}
 
+	// create empty multimap for approvals
+	approvalsRoot, err := adt.StoreEmptyMap(store, builtin.DefaultHamtBitwidth)
+	if err != nil {
+		return nil, xerrors.Errorf("failed to create approvals map: %w", err)
+	}
+
 	return &State{
 		Name:        name,
 		Symbol:      symbol,
 		Decimals:    decimals,
 		TotalSupply: supply,
 		Balances:    balanceRoot,
+		Approvals:   approvalsRoot,
 	}, nil
 }
 
@@ -125,4 +136,67 @@ func (st *State) Transfer(store adt.Store, from addr.Address, to addr.Address, v
 	st.Balances = balanceRoot
 
 	return false, nil
+}
+
+func (st *State) Approve(store adt.Store, approver addr.Address, approvee addr.Address, value abi.TokenAmount) error {
+	approvals, err := adt.AsMap(store, st.Approvals, builtin.DefaultHamtBitwidth)
+	if err != nil {
+		return xerrors.Errorf("could not open approvals table: %w", err)
+	}
+
+	var approveesCid cbg.CborCid
+	found, err := approvals.Get(abi.AddrKey(approver), &approveesCid)
+	if err != nil {
+		return xerrors.Errorf("could not open approvees table for %v: %w", approver, err)
+	}
+
+	var approvees *adt.Map
+	if found {
+		approvees, err = adt.AsMap(store, cid.Cid(approveesCid), builtin.DefaultHamtBitwidth)
+		if err != nil {
+			return xerrors.Errorf("could not open approvees table for %v: %w", approver, err)
+		}
+	} else {
+		approvees, err = adt.MakeEmptyMap(store, builtin.DefaultHamtBitwidth)
+		if err != nil {
+			return xerrors.Errorf("could not open approvees table for %v: %w", approver, err)
+		}
+	}
+
+	var approveeBalance abi.TokenAmount
+	found, err = approvees.Get(abi.AddrKey(approvee), &approveeBalance)
+	if err != nil {
+		return xerrors.Errorf("could not get balance for approvee %v: %w", approvee, err)
+	}
+
+	if !found {
+		approveeBalance = big.Zero()
+	}
+
+	approveeNewBalance := big.Add(approveeBalance, value)
+
+	err = approvees.Put(abi.AddrKey(approvee), &approveeNewBalance)
+	if err != nil {
+		return xerrors.Errorf("could not get save balance for approvee %v: %w", approvee, err)
+	}
+
+	approveeRoot, err := approvees.Root()
+	if err != nil {
+		return xerrors.Errorf("could not get approvees root: %w", err)
+	}
+
+	cbgRoot := cbg.CborCid(approveeRoot)
+	err = approvals.Put(abi.AddrKey(approver), &cbgRoot)
+	if err != nil {
+		return xerrors.Errorf("could not get save approvals: %w", err)
+	}
+
+	approvalsRoot, err := approvals.Root()
+	if err != nil {
+		return xerrors.Errorf("could not get approvals root: %w", err)
+	}
+
+	st.Approvals = approvalsRoot
+
+	return nil
 }

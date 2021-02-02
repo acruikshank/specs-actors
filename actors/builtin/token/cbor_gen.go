@@ -12,7 +12,7 @@ import (
 
 var _ = xerrors.Errorf
 
-var lengthBufState = []byte{133}
+var lengthBufState = []byte{134}
 
 func (t *State) MarshalCBOR(w io.Writer) error {
 	if t == nil {
@@ -66,6 +66,12 @@ func (t *State) MarshalCBOR(w io.Writer) error {
 		return xerrors.Errorf("failed to write cid field t.Balances: %w", err)
 	}
 
+	// t.Approvals (cid.Cid) (struct)
+
+	if err := cbg.WriteCidBuf(scratch, w, t.Approvals); err != nil {
+		return xerrors.Errorf("failed to write cid field t.Approvals: %w", err)
+	}
+
 	return nil
 }
 
@@ -83,7 +89,7 @@ func (t *State) UnmarshalCBOR(r io.Reader) error {
 		return fmt.Errorf("cbor input should be of type array")
 	}
 
-	if extra != 5 {
+	if extra != 6 {
 		return fmt.Errorf("cbor input had wrong number of fields")
 	}
 
@@ -140,6 +146,18 @@ func (t *State) UnmarshalCBOR(r io.Reader) error {
 		}
 
 		t.Balances = c
+
+	}
+	// t.Approvals (cid.Cid) (struct)
+
+	{
+
+		c, err := cbg.ReadCid(br)
+		if err != nil {
+			return xerrors.Errorf("failed to read cid field t.Approvals: %w", err)
+		}
+
+		t.Approvals = c
 
 	}
 	return nil
@@ -320,6 +338,68 @@ func (t *TransferParams) UnmarshalCBOR(r io.Reader) error {
 
 		if err := t.To.UnmarshalCBOR(br); err != nil {
 			return xerrors.Errorf("unmarshaling t.To: %w", err)
+		}
+
+	}
+	// t.Value (big.Int) (struct)
+
+	{
+
+		if err := t.Value.UnmarshalCBOR(br); err != nil {
+			return xerrors.Errorf("unmarshaling t.Value: %w", err)
+		}
+
+	}
+	return nil
+}
+
+var lengthBufApproveParams = []byte{130}
+
+func (t *ApproveParams) MarshalCBOR(w io.Writer) error {
+	if t == nil {
+		_, err := w.Write(cbg.CborNull)
+		return err
+	}
+	if _, err := w.Write(lengthBufApproveParams); err != nil {
+		return err
+	}
+
+	// t.Approvee (address.Address) (struct)
+	if err := t.Approvee.MarshalCBOR(w); err != nil {
+		return err
+	}
+
+	// t.Value (big.Int) (struct)
+	if err := t.Value.MarshalCBOR(w); err != nil {
+		return err
+	}
+	return nil
+}
+
+func (t *ApproveParams) UnmarshalCBOR(r io.Reader) error {
+	*t = ApproveParams{}
+
+	br := cbg.GetPeeker(r)
+	scratch := make([]byte, 8)
+
+	maj, extra, err := cbg.CborReadHeaderBuf(br, scratch)
+	if err != nil {
+		return err
+	}
+	if maj != cbg.MajArray {
+		return fmt.Errorf("cbor input should be of type array")
+	}
+
+	if extra != 2 {
+		return fmt.Errorf("cbor input had wrong number of fields")
+	}
+
+	// t.Approvee (address.Address) (struct)
+
+	{
+
+		if err := t.Approvee.UnmarshalCBOR(br); err != nil {
+			return xerrors.Errorf("unmarshaling t.Approvee: %w", err)
 		}
 
 	}

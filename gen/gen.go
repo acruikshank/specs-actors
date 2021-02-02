@@ -236,6 +236,7 @@ func main() {
 		// method params and returns
 		token.ConstructorParams{},
 		token.TransferParams{},
+		token.ApproveParams{},
 		// other types
 	); err != nil {
 		panic(err)

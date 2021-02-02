@@ -359,14 +359,14 @@ func (t *ConstructorParams) UnmarshalCBOR(r io.Reader) error {
 	return nil
 }
 
-var lengthBufTokenInfoReturn = []byte{133}
+var lengthBufTokenInfo = []byte{133}
 
-func (t *TokenInfoReturn) MarshalCBOR(w io.Writer) error {
+func (t *TokenInfo) MarshalCBOR(w io.Writer) error {
 	if t == nil {
 		_, err := w.Write(cbg.CborNull)
 		return err
 	}
-	if _, err := w.Write(lengthBufTokenInfoReturn); err != nil {
+	if _, err := w.Write(lengthBufTokenInfo); err != nil {
 		return err
 	}
 
@@ -422,8 +422,8 @@ func (t *TokenInfoReturn) MarshalCBOR(w io.Writer) error {
 	return nil
 }
 
-func (t *TokenInfoReturn) UnmarshalCBOR(r io.Reader) error {
-	*t = TokenInfoReturn{}
+func (t *TokenInfo) UnmarshalCBOR(r io.Reader) error {
+	*t = TokenInfo{}
 
 	br := cbg.GetPeeker(r)
 	scratch := make([]byte, 8)

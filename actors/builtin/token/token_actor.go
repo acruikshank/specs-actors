@@ -80,7 +80,7 @@ func (a Actor) Constructor(rt runtime.Runtime, params *ConstructorParams) *abi.E
 	return nil
 }
 
-type TokenInfoReturn struct {
+type TokenInfo struct {
 	Name        string
 	Symbol      string
 	Icon        []byte
@@ -89,26 +89,20 @@ type TokenInfoReturn struct {
 }
 
 // Get static parameters of token
-func (a Actor) TokenInfo(rt runtime.Runtime, value *abi.EmptyValue) *TokenInfoReturn {
+func (a Actor) TokenInfo(rt runtime.Runtime, value *abi.EmptyValue) *TokenInfo {
 	rt.ValidateImmediateCallerAcceptAny()
 
 	var st State
 	rt.StateReadonly(&st)
-	return &TokenInfoReturn{
-		Name:        st.Name,
-		Symbol:      st.Symbol,
-		Icon:        st.Icon,
-		Decimals:    st.Decimals,
-		TotalSupply: st.TotalSupply,
-	}
+	return st.TokenInfo()
 }
 
 // Get balance for address
-func (a Actor) BalanceOf(rt runtime.Runtime, account addr.Address) abi.TokenAmount {
+func (a Actor) BalanceOf(rt runtime.Runtime, account *addr.Address) *abi.TokenAmount {
 	rt.ValidateImmediateCallerAcceptAny()
 
 	// resolve address
-	resolvedAccount, err := builtin.ResolveToIDAddr(rt, account)
+	resolvedAccount, err := builtin.ResolveToIDAddr(rt, *account)
 	if err != nil {
 		rt.Abortf(exitcode.ErrIllegalArgument, "failed to resolve account address %v: %w", account, err)
 	}
@@ -121,7 +115,7 @@ func (a Actor) BalanceOf(rt runtime.Runtime, account addr.Address) abi.TokenAmou
 		rt.Abortf(exitcode.ErrIllegalState, "failed to retrieve balance: %w", err)
 	}
 
-	return balance
+	return &balance
 }
 
 type TransferParams struct {
@@ -195,7 +189,7 @@ type AllowanceParams struct {
 }
 
 // retrieve how much another address is authorized to spend
-func (a Actor) Allowance(rt runtime.Runtime, params *AllowanceParams) abi.TokenAmount {
+func (a Actor) Allowance(rt runtime.Runtime, params *AllowanceParams) *abi.TokenAmount {
 	rt.ValidateImmediateCallerAcceptAny()
 
 	// resolve owner address
@@ -218,7 +212,7 @@ func (a Actor) Allowance(rt runtime.Runtime, params *AllowanceParams) abi.TokenA
 		rt.Abortf(exitcode.ErrIllegalState, err.Error())
 	}
 
-	return amount
+	return &amount
 }
 
 type TransferFromParams struct {

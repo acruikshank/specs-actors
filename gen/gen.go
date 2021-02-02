@@ -235,7 +235,7 @@ func main() {
 		token.State{},
 		// method params and returns
 		token.ConstructorParams{},
-		token.TokenInfoReturn{},
+		token.TokenInfo{},
 		token.TransferParams{},
 		token.ApproveParams{},
 		token.AllowanceParams{},

@@ -71,6 +71,16 @@ func ConstructState(store adt.Store, name string, symbol string, icon []byte, de
 	}, nil
 }
 
+func (st *State) TokenInfo() *TokenInfo {
+	return &TokenInfo{
+		Name:        st.Name,
+		Symbol:      st.Symbol,
+		Icon:        st.Icon,
+		Decimals:    st.Decimals,
+		TotalSupply: st.TotalSupply,
+	}
+}
+
 func (st *State) BalanceOf(store adt.Store, account addr.Address) (abi.TokenAmount, error) {
 	balances, err := adt.AsMap(store, st.Balances, builtin.DefaultHamtBitwidth)
 	if err != nil {

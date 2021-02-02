@@ -107,7 +107,7 @@ func TestTransfer(t *testing.T) {
 		})
 	})
 
-	t.Run("double transfer", func(t *testing.T) {
+	t.Run("muliple transfers", func(t *testing.T) {
 		rt := builder.Build(t)
 		rt.SetEpoch(100)
 		supply := abi.NewTokenAmount(1e12)
@@ -136,6 +136,115 @@ func TestTransfer(t *testing.T) {
 
 		user2Balance = actor.balanceOf(rt, user2)
 		assert.Equal(t, trnsfrAmt, user2Balance)
+	})
+
+	t.Run("transfer from user with no balance", func(t *testing.T) {
+		rt := builder.Build(t)
+		rt.SetEpoch(100)
+		supply := abi.NewTokenAmount(1e12)
+		actor.constructAndVerify(rt, "Testcoin", "TCN", []byte("testcoin icon"), uint64(5), supply, system)
+
+		trnsfrAmt := abi.NewTokenAmount(2000)
+
+		rt.ExpectAbortContainsMessage(exitcode.ErrInsufficientFunds, "insufficient funds", func() {
+			actor.transfer(rt, user1, user2, trnsfrAmt)
+		})
+	})
+
+	t.Run("insufficient funds", func(t *testing.T) {
+		rt := builder.Build(t)
+		rt.SetEpoch(100)
+		supply := abi.NewTokenAmount(1e12)
+		actor.constructAndVerify(rt, "Testcoin", "TCN", []byte("testcoin icon"), uint64(5), supply, system)
+
+		trnsfrAmt := big.Add(supply, abi.NewTokenAmount(1))
+
+		rt.ExpectAbortContainsMessage(exitcode.ErrInsufficientFunds, "insufficient funds", func() {
+			actor.transfer(rt, system, user1, trnsfrAmt)
+		})
+	})
+}
+
+func TestApprovedTransfer(t *testing.T) {
+	actor := &tActorHarness{token.Actor{}, t}
+	receiver := tutil.NewIDAddr(t, 100)
+	system := tutil.NewIDAddr(t, 101)
+	user1 := tutil.NewIDAddr(t, 102)
+	user2 := tutil.NewIDAddr(t, 103)
+	user3 := tutil.NewIDAddr(t, 104)
+	builder := mock.NewBuilder(context.Background(), receiver).
+		WithCaller(builtin.InitActorAddr, builtin.InitActorCodeID).
+		WithActorType(system, builtin.AccountActorCodeID).
+		WithActorType(user1, builtin.AccountActorCodeID).
+		WithActorType(user2, builtin.AccountActorCodeID).
+		WithActorType(user3, builtin.AccountActorCodeID)
+
+	t.Run("approve transferring", func(t *testing.T) {
+		rt := builder.Build(t)
+		rt.SetEpoch(100)
+		supply := abi.NewTokenAmount(1e12)
+		actor.constructAndVerify(rt, "Testcoin", "TCN", []byte("testcoin icon"), uint64(5), supply, system)
+
+		trnsfrAmt := abi.NewTokenAmount(5000)
+		actor.approve(rt, system, user1, trnsfrAmt)
+
+		allowance := actor.allowance(rt, system, user1)
+		assert.Equal(t, trnsfrAmt, allowance)
+	})
+
+	t.Run("transfer from without approval", func(t *testing.T) {
+		rt := builder.Build(t)
+		rt.SetEpoch(100)
+		supply := abi.NewTokenAmount(1e12)
+		actor.constructAndVerify(rt, "Testcoin", "TCN", []byte("testcoin icon"), uint64(5), supply, system)
+
+		trnsfrAmt := abi.NewTokenAmount(5000)
+
+		rt.ExpectAbortContainsMessage(exitcode.ErrForbidden, "insufficient allowance", func() {
+			actor.transferFrom(rt, user1, system, user2, trnsfrAmt)
+		})
+	})
+
+	t.Run("transfer approved amount", func(t *testing.T) {
+		rt := builder.Build(t)
+		rt.SetEpoch(100)
+		supply := abi.NewTokenAmount(1e12)
+		actor.constructAndVerify(rt, "Testcoin", "TCN", []byte("testcoin icon"), uint64(5), supply, system)
+
+		trnsfrAmt := abi.NewTokenAmount(5000)
+		actor.approve(rt, system, user1, trnsfrAmt)
+		actor.transferFrom(rt, user1, system, user2, trnsfrAmt)
+
+		user2Balance := actor.balanceOf(rt, user2)
+		assert.Equal(t, trnsfrAmt, user2Balance)
+	})
+
+	t.Run("transfer exceeds allowance", func(t *testing.T) {
+		rt := builder.Build(t)
+		rt.SetEpoch(100)
+		supply := abi.NewTokenAmount(1e12)
+		actor.constructAndVerify(rt, "Testcoin", "TCN", []byte("testcoin icon"), uint64(5), supply, system)
+
+		trnsfrAmt := abi.NewTokenAmount(5000)
+		actor.approve(rt, system, user1, trnsfrAmt)
+
+		rt.ExpectAbortContainsMessage(exitcode.ErrForbidden, "insufficient allowance", func() {
+			actor.transferFrom(rt, user1, system, user2, big.Add(trnsfrAmt, abi.NewTokenAmount(1)))
+		})
+	})
+
+	t.Run("transfer exceeds available funds", func(t *testing.T) {
+		rt := builder.Build(t)
+		rt.SetEpoch(100)
+		supply := abi.NewTokenAmount(1e12)
+		actor.constructAndVerify(rt, "Testcoin", "TCN", []byte("testcoin icon"), uint64(5), supply, system)
+
+		trnsfrAmt := abi.NewTokenAmount(1e13)
+		actor.approve(rt, system, user1, trnsfrAmt)
+
+		rt.ExpectAbortContainsMessage(exitcode.ErrInsufficientFunds, "insufficient funds", func() {
+			actor.transferFrom(rt, user1, system, user2, big.Add(supply, abi.NewTokenAmount(1)))
+		})
 	})
 }
 
@@ -180,4 +289,46 @@ func (h *tActorHarness) balanceOf(rt *mock.Runtime, acct addr.Address) abi.Token
 
 	balance := ret.(*abi.TokenAmount)
 	return *balance
+}
+
+func (h *tActorHarness) approve(rt *mock.Runtime, approver, approvee addr.Address, value abi.TokenAmount) {
+	approveParameters := token.ApproveParams{
+		Approvee: approvee,
+		Value:    value,
+	}
+
+	rt.ExpectValidateCallerAny()
+	rt.SetCaller(approver, builtin.AccountActorCodeID)
+	ret := rt.Call(h.a.Approve, &approveParameters)
+	assert.Nil(h.t, ret)
+	rt.Verify()
+}
+
+func (h *tActorHarness) allowance(rt *mock.Runtime, approver, approvee addr.Address) abi.TokenAmount {
+	allowanceParams := token.AllowanceParams{
+		Owner:   approver,
+		Spender: approvee,
+	}
+
+	rt.ExpectValidateCallerAny()
+	rt.SetCaller(approver, builtin.AccountActorCodeID)
+	ret := rt.Call(h.a.Allowance, &allowanceParams)
+	rt.Verify()
+
+	balance := ret.(*abi.TokenAmount)
+	return *balance
+}
+
+func (h *tActorHarness) transferFrom(rt *mock.Runtime, sender, from, to addr.Address, value abi.TokenAmount) {
+	transferFromParams := token.TransferFromParams{
+		From:  from,
+		To:    to,
+		Value: value,
+	}
+
+	rt.ExpectValidateCallerAny()
+	rt.SetCaller(sender, builtin.AccountActorCodeID)
+	ret := rt.Call(h.a.TransferFrom, &transferFromParams)
+	assert.Nil(h.t, ret)
+	rt.Verify()
 }

@@ -12,7 +12,7 @@ import (
 
 var _ = xerrors.Errorf
 
-var lengthBufState = []byte{134}
+var lengthBufState = []byte{135}
 
 func (t *State) MarshalCBOR(w io.Writer) error {
 	if t == nil {
@@ -46,6 +46,19 @@ func (t *State) MarshalCBOR(w io.Writer) error {
 		return err
 	}
 	if _, err := io.WriteString(w, string(t.Symbol)); err != nil {
+		return err
+	}
+
+	// t.Icon ([]uint8) (slice)
+	if len(t.Icon) > cbg.ByteArrayMaxLen {
+		return xerrors.Errorf("Byte array in field t.Icon was too long")
+	}
+
+	if err := cbg.WriteMajorTypeHeaderBuf(scratch, w, cbg.MajByteString, uint64(len(t.Icon))); err != nil {
+		return err
+	}
+
+	if _, err := w.Write(t.Icon[:]); err != nil {
 		return err
 	}
 
@@ -89,7 +102,7 @@ func (t *State) UnmarshalCBOR(r io.Reader) error {
 		return fmt.Errorf("cbor input should be of type array")
 	}
 
-	if extra != 6 {
+	if extra != 7 {
 		return fmt.Errorf("cbor input had wrong number of fields")
 	}
 
@@ -112,6 +125,27 @@ func (t *State) UnmarshalCBOR(r io.Reader) error {
 		}
 
 		t.Symbol = string(sval)
+	}
+	// t.Icon ([]uint8) (slice)
+
+	maj, extra, err = cbg.CborReadHeaderBuf(br, scratch)
+	if err != nil {
+		return err
+	}
+
+	if extra > cbg.ByteArrayMaxLen {
+		return fmt.Errorf("t.Icon: byte array too large (%d)", extra)
+	}
+	if maj != cbg.MajByteString {
+		return fmt.Errorf("expected byte array")
+	}
+
+	if extra > 0 {
+		t.Icon = make([]uint8, extra)
+	}
+
+	if _, err := io.ReadFull(br, t.Icon[:]); err != nil {
+		return err
 	}
 	// t.Decimals (uint64) (uint64)
 
@@ -163,7 +197,7 @@ func (t *State) UnmarshalCBOR(r io.Reader) error {
 	return nil
 }
 
-var lengthBufConstructorParams = []byte{133}
+var lengthBufConstructorParams = []byte{134}
 
 func (t *ConstructorParams) MarshalCBOR(w io.Writer) error {
 	if t == nil {
@@ -200,6 +234,19 @@ func (t *ConstructorParams) MarshalCBOR(w io.Writer) error {
 		return err
 	}
 
+	// t.Icon ([]uint8) (slice)
+	if len(t.Icon) > cbg.ByteArrayMaxLen {
+		return xerrors.Errorf("Byte array in field t.Icon was too long")
+	}
+
+	if err := cbg.WriteMajorTypeHeaderBuf(scratch, w, cbg.MajByteString, uint64(len(t.Icon))); err != nil {
+		return err
+	}
+
+	if _, err := w.Write(t.Icon[:]); err != nil {
+		return err
+	}
+
 	// t.Decimals (uint64) (uint64)
 
 	if err := cbg.WriteMajorTypeHeaderBuf(scratch, w, cbg.MajUnsignedInt, uint64(t.Decimals)); err != nil {
@@ -232,7 +279,7 @@ func (t *ConstructorParams) UnmarshalCBOR(r io.Reader) error {
 		return fmt.Errorf("cbor input should be of type array")
 	}
 
-	if extra != 5 {
+	if extra != 6 {
 		return fmt.Errorf("cbor input had wrong number of fields")
 	}
 
@@ -255,6 +302,27 @@ func (t *ConstructorParams) UnmarshalCBOR(r io.Reader) error {
 		}
 
 		t.Symbol = string(sval)
+	}
+	// t.Icon ([]uint8) (slice)
+
+	maj, extra, err = cbg.CborReadHeaderBuf(br, scratch)
+	if err != nil {
+		return err
+	}
+
+	if extra > cbg.ByteArrayMaxLen {
+		return fmt.Errorf("t.Icon: byte array too large (%d)", extra)
+	}
+	if maj != cbg.MajByteString {
+		return fmt.Errorf("expected byte array")
+	}
+
+	if extra > 0 {
+		t.Icon = make([]uint8, extra)
+	}
+
+	if _, err := io.ReadFull(br, t.Icon[:]); err != nil {
+		return err
 	}
 	// t.Decimals (uint64) (uint64)
 

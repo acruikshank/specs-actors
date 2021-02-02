@@ -28,6 +28,7 @@ func (a Actor) Exports() []interface{} {
 		8:                         a.Approve,
 		9:                         a.Allowance,
 		10:                        a.TransferFrom,
+		11:                        a.Icon,
 	}
 }
 
@@ -44,6 +45,7 @@ var _ runtime.VMActor = Actor{}
 type ConstructorParams struct {
 	Name          string
 	Symbol        string
+	Icon          []byte
 	Decimals      uint64
 	TotalSupply   abi.TokenAmount
 	SystemAccount addr.Address
@@ -73,7 +75,7 @@ func (a Actor) Constructor(rt runtime.Runtime, params *ConstructorParams) *abi.E
 			builtin.AccountActorCodeID, codeCID)
 	}
 
-	st, err := ConstructState(adt.AsStore(rt), params.Name, params.Symbol, params.Decimals, params.TotalSupply, resolvedSystem)
+	st, err := ConstructState(adt.AsStore(rt), params.Name, params.Symbol, params.Icon, params.Decimals, params.TotalSupply, resolvedSystem)
 	if err != nil {
 		rt.Abortf(exitcode.ErrIllegalState, "could not initialize state: %w", err)
 	}
@@ -98,6 +100,15 @@ func (a Actor) Symbol(rt runtime.Runtime, value abi.EmptyValue) string {
 	var st State
 	rt.StateReadonly(&st)
 	return st.Symbol
+}
+
+// Get symbol of token
+func (a Actor) Icon(rt runtime.Runtime, value abi.EmptyValue) []byte {
+	rt.ValidateImmediateCallerAcceptAny()
+
+	var st State
+	rt.StateReadonly(&st)
+	return st.Icon
 }
 
 // Get decimals used by token

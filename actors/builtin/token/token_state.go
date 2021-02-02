@@ -19,6 +19,9 @@ type State struct {
 	// Symbol for token
 	Symbol string
 
+	// Image for icon
+	Icon []byte
+
 	// Number decimals represented by 1 token unit
 	Decimals uint64
 
@@ -32,7 +35,7 @@ type State struct {
 	Approvals cid.Cid // MultiMap, HAMT[address]HAMT[address]TokenAmount
 }
 
-func ConstructState(store adt.Store, name string, symbol string, decimals uint64, supply abi.TokenAmount, owner addr.Address) (*State, error) {
+func ConstructState(store adt.Store, name string, symbol string, icon []byte, decimals uint64, supply abi.TokenAmount, owner addr.Address) (*State, error) {
 	// create empty map for balances
 	balances, err := adt.MakeEmptyMap(store, builtin.DefaultHamtBitwidth)
 	if err != nil {
@@ -60,6 +63,7 @@ func ConstructState(store adt.Store, name string, symbol string, decimals uint64
 	return &State{
 		Name:        name,
 		Symbol:      symbol,
+		Icon:        icon,
 		Decimals:    decimals,
 		TotalSupply: supply,
 		Balances:    balanceRoot,

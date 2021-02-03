@@ -1,6 +1,7 @@
 package main
 
 import (
+	"github.com/filecoin-project/specs-actors/v3/actors/builtin/bounty"
 	gen "github.com/whyrusleeping/cbor-gen"
 
 	"github.com/filecoin-project/specs-actors/v3/actors/builtin"
@@ -161,6 +162,7 @@ func main() {
 		market.SectorDeals{},
 		market.SectorWeights{},
 		market.DealState{},
+		market.GetActiveDealParams{},
 	); err != nil {
 		panic(err)
 	}
@@ -240,6 +242,17 @@ func main() {
 		token.ApproveParams{},
 		token.AllowanceParams{},
 		token.TransferFromParams{},
+		// other types
+	); err != nil {
+		panic(err)
+	}
+
+	if err := gen.WriteTupleEncodersToFile("./actors/builtin/bounty/cbor_gen.go", "bounty",
+		// actor state
+		bounty.State{},
+		// method params and returns
+		bounty.ConstructorParams{},
+		bounty.ClaimParams{},
 		// other types
 	); err != nil {
 		panic(err)

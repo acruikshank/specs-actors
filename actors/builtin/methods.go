@@ -71,7 +71,8 @@ var MethodsMarket = struct {
 	OnMinerSectorsTerminate  abi.MethodNum
 	ComputeDataCommitment    abi.MethodNum
 	CronTick                 abi.MethodNum
-}{MethodConstructor, 2, 3, 4, 5, 6, 7, 8, 9}
+	GetActiveDeal            abi.MethodNum
+}{MethodConstructor, 2, 3, 4, 5, 6, 7, 8, 9, 10}
 
 var MethodsPower = struct {
 	Constructor              abi.MethodNum
@@ -120,3 +121,8 @@ var MethodsVerifiedRegistry = struct {
 	UseBytes          abi.MethodNum
 	RestoreBytes      abi.MethodNum
 }{MethodConstructor, 2, 3, 4, 5, 6}
+
+var MethodsBounty = struct {
+	Constructor abi.MethodNum
+	Claim       abi.MethodNum
+}{MethodConstructor, 2}

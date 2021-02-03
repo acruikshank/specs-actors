@@ -40,6 +40,7 @@ func (a Actor) Exports() []interface{} {
 		7:                         a.OnMinerSectorsTerminate,
 		8:                         a.ComputeDataCommitment,
 		9:                         a.CronTick,
+		10:                        a.GetActiveDeal,
 	}
 }
 
@@ -490,6 +491,48 @@ func (a Actor) OnMinerSectorsTerminate(rt Runtime, params *OnMinerSectorsTermina
 		builtin.RequireNoErr(rt, err, exitcode.ErrIllegalState, "failed to flush state")
 	})
 	return nil
+}
+
+type GetActiveDealParams struct {
+	DealID abi.DealID
+}
+
+// Get a deal by ID. This errors if the deal does not exist or it is not active (has a deal state)
+func (a Actor) GetActiveDeal(rt Runtime, params *GetActiveDealParams) *DealProposal {
+	rt.ValidateImmediateCallerAcceptAny()
+
+	var st State
+	rt.StateReadonly(&st)
+
+	proposals, err := AsDealProposalArray(adt.AsStore(rt), st.Proposals)
+	if err != nil {
+		rt.Abortf(exitcode.ErrIllegalState, "could not load proposals array")
+	}
+
+	deal, found, err := proposals.Get(params.DealID)
+	if err != nil {
+		rt.Abortf(exitcode.ErrIllegalState, "could not retrieve deal %d from proposals array", params.DealID)
+	}
+
+	if !found {
+		rt.Abortf(exitcode.ErrNotFound, "deal not found")
+	}
+
+	states, err := AsDealStateArray(adt.AsStore(rt), st.States)
+	if err != nil {
+		rt.Abortf(exitcode.ErrIllegalState, "could not load deal states array", params.DealID)
+	}
+
+	_, found, err = states.Get(params.DealID)
+	if err != nil {
+		rt.Abortf(exitcode.ErrIllegalState, "could not retrieve deal state for %d", params.DealID)
+	}
+
+	if !found {
+		rt.Abortf(exitcode.ErrNotFound, "deal not active")
+	}
+
+	return deal
 }
 
 func (a Actor) CronTick(rt Runtime, _ *abi.EmptyValue) *abi.EmptyValue {

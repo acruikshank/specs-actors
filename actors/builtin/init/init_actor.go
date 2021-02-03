@@ -102,7 +102,7 @@ func canExec(callerCodeID cid.Cid, execCodeID cid.Cid) bool {
 			return true
 		}
 		return false
-	case builtin.PaymentChannelActorCodeID, builtin.MultisigActorCodeID, builtin.TokenActorCodeID:
+	case builtin.PaymentChannelActorCodeID, builtin.MultisigActorCodeID, builtin.TokenActorCodeID, builtin.BountyActorCodeID:
 		return true
 	default:
 		return false

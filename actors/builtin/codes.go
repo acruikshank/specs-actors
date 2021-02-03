@@ -21,6 +21,7 @@ var (
 	RewardActorCodeID           cid.Cid
 	VerifiedRegistryActorCodeID cid.Cid
 	TokenActorCodeID            cid.Cid
+	BountyActorCodeID           cid.Cid
 	CallerTypesSignable         []cid.Cid
 )
 
@@ -46,6 +47,7 @@ func init() {
 		&RewardActorCodeID:           {name: "fil/3/reward"},
 		&VerifiedRegistryActorCodeID: {name: "fil/3/verifiedregistry"},
 		&TokenActorCodeID:            {name: "fil/3/token"},
+		&BountyActorCodeID:           {name: "fil/3/bounty"},
 		&AccountActorCodeID:          {name: "fil/3/account", signer: true},
 		&MultisigActorCodeID:         {name: "fil/3/multisig", signer: true},
 	} {

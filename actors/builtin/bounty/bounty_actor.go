@@ -26,7 +26,7 @@ func (a Actor) Exports() []interface{} {
 }
 
 func (a Actor) Code() cid.Cid {
-	return builtin.TokenActorCodeID
+	return builtin.BountyActorCodeID
 }
 
 func (a Actor) State() cbor.Er {
@@ -71,11 +71,13 @@ type ClaimParams struct {
 }
 
 func (a Actor) Claim(rt runtime.Runtime, params *ClaimParams) *abi.EmptyValue {
+	rt.ValidateImmediateCallerAcceptAny()
+
 	// retrieve deal from market actor (this fails if deal is not active)
 	var proposal market.DealProposal
 	gadParams := &market.GetActiveDealParams{DealID: params.DealID}
 	code := rt.Send(builtin.StorageMarketActorAddr, builtin.MethodsMarket.GetActiveDeal, gadParams, big.Zero(), &proposal)
-	builtin.RequireSuccess(rt, code, "failed to retrieve proposal funds")
+	builtin.RequireSuccess(rt, code, "failed to retrieve proposal")
 
 	var tokenAddr *addr.Address
 	var fromAddr addr.Address
@@ -122,10 +124,10 @@ func (a Actor) Claim(rt runtime.Runtime, params *ClaimParams) *abi.EmptyValue {
 			To:    proposal.Client,
 			Value: value,
 		}
-		code := rt.Send(*tokenAddr, builtin.MethodsToken.TransferFrom, &transferParams, big.Zero(), nil)
+		code := rt.Send(*tokenAddr, builtin.MethodsToken.TransferFrom, &transferParams, big.Zero(), &builtin.Discard{})
 		builtin.RequireSuccess(rt, code, "failed to transfer token %v from %v to %v", tokenAddr, fromAddr, proposal.Client)
 	} else {
-		code := rt.Send(proposal.Client, builtin.MethodSend, nil, value, nil)
+		code := rt.Send(proposal.Client, builtin.MethodSend, nil, value, &builtin.Discard{})
 		builtin.RequireSuccess(rt, code, "failed to transfer %v FIL to %v", value, proposal.Client)
 	}
 

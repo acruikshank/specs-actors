@@ -39,6 +39,7 @@ func ConstructState(store adt.Store, pieceCid cid.Cid, token *addr.Address, from
 	return &State{
 		PieceCid: pieceCid,
 		Token:    token,
+		From:     from,
 		Value:    value,
 		Bounties: bounties,
 		Paid:     paidCid,

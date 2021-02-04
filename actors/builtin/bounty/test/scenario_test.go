@@ -69,7 +69,8 @@ func TestCreateAndClaimTokenBounty(t *testing.T) {
 		PieceCid: pieceCid,
 		Token:    &tokenActorAddr,
 		From:     founder,
-		Value:    abi.NewTokenAmount(2000),
+		Duration: abi.ChainEpoch(1000),
+		Value:    abi.NewTokenAmount(6000),
 		Bounties: 3,
 	}
 
@@ -174,6 +175,11 @@ func TestCreateAndClaimTokenBounty(t *testing.T) {
 	ret = vm.ApplyOk(t, v, client1, bountyActorAddr, big.Zero(), builtin.MethodsBounty.Claim, &claimParams)
 	assert.Nil(t, ret)
 
+	// confirm client has not yet received payment
+	ret = vm.ApplyOk(t, v, client1, tokenActorAddr, big.Zero(), builtin.MethodsToken.BalanceOf, &client1)
+	balance := ret.(*abi.TokenAmount)
+	assert.Equal(t, *balance, abi.NewTokenAmount(0))
+
 	t.Run("invalid deal is forbidden", func(t *testing.T) {
 		v2, err := v.WithEpoch(v.GetEpoch()) // clone vm
 		require.NoError(t, err)
@@ -204,6 +210,11 @@ func TestCreateAndClaimTokenBounty(t *testing.T) {
 	ret = vm.ApplyOk(t, v, client1, bountyActorAddr, big.Zero(), builtin.MethodsBounty.Claim, &claimParams)
 	assert.Nil(t, ret)
 
+	// confirm client 2 has not yet received payment
+	ret = vm.ApplyOk(t, v, client1, tokenActorAddr, big.Zero(), builtin.MethodsToken.BalanceOf, &client2)
+	balance = ret.(*abi.TokenAmount)
+	assert.Equal(t, *balance, abi.NewTokenAmount(0))
+
 	// make third claim for confirm client3
 	claimParams = bounty.ClaimParams{
 		NewDealID: &dealIDs[2],
@@ -219,15 +230,56 @@ func TestCreateAndClaimTokenBounty(t *testing.T) {
 		require.Equal(t, exitcode.ErrForbidden, code)
 	})
 
-	// confirm client has bounty
-	//ret = vm.ApplyOk(t, v, client1, tokenActorAddr, big.Zero(), builtin.MethodsToken.BalanceOf, &client1)
-	//balance := ret.(*abi.TokenAmount)
-	//assert.Equal(t, *balance, abi.NewTokenAmount(2000))
-	//
-	//// confirm client2 has bounty
-	//ret = vm.ApplyOk(t, v, client1, tokenActorAddr, big.Zero(), builtin.MethodsToken.BalanceOf, &client2)
-	//balance = ret.(*abi.TokenAmount)
-	//assert.Equal(t, *balance, abi.NewTokenAmount(2000))
+	// advance half way through duration epochs and make new empty claim
+	v, err = v.WithEpoch(v.GetEpoch() + 500)
+	require.NoError(t, err)
+
+	// no new deal in claim
+	claimParams = bounty.ClaimParams{
+		NewDealID: nil,
+	}
+	ret = vm.ApplyOk(t, v, client1, bountyActorAddr, big.Zero(), builtin.MethodsBounty.Claim, &claimParams)
+	assert.Nil(t, ret)
+
+	// confirm clients have bounty
+	ret = vm.ApplyOk(t, v, client1, tokenActorAddr, big.Zero(), builtin.MethodsToken.BalanceOf, &client1)
+	balance = ret.(*abi.TokenAmount)
+	assert.Equal(t, *balance, abi.NewTokenAmount(1000))
+
+	// confirm clients have bounty
+	ret = vm.ApplyOk(t, v, client1, tokenActorAddr, big.Zero(), builtin.MethodsToken.BalanceOf, &client2)
+	balance = ret.(*abi.TokenAmount)
+	assert.Equal(t, *balance, abi.NewTokenAmount(1000))
+
+	// confirm clients have bounty
+	ret = vm.ApplyOk(t, v, client1, tokenActorAddr, big.Zero(), builtin.MethodsToken.BalanceOf, &client3)
+	balance = ret.(*abi.TokenAmount)
+	assert.Equal(t, *balance, abi.NewTokenAmount(1000))
+
+	// advance all the way through duration epochs and confirm full bounty has been paid
+	v, err = v.WithEpoch(v.GetEpoch() + 500)
+	require.NoError(t, err)
+
+	claimParams = bounty.ClaimParams{
+		NewDealID: nil,
+	}
+	ret = vm.ApplyOk(t, v, client1, bountyActorAddr, big.Zero(), builtin.MethodsBounty.Claim, &claimParams)
+	assert.Nil(t, ret)
+
+	// confirm clients have bounty
+	ret = vm.ApplyOk(t, v, client1, tokenActorAddr, big.Zero(), builtin.MethodsToken.BalanceOf, &client1)
+	balance = ret.(*abi.TokenAmount)
+	assert.Equal(t, *balance, abi.NewTokenAmount(2000))
+
+	// confirm clients have bounty
+	ret = vm.ApplyOk(t, v, client1, tokenActorAddr, big.Zero(), builtin.MethodsToken.BalanceOf, &client2)
+	balance = ret.(*abi.TokenAmount)
+	assert.Equal(t, *balance, abi.NewTokenAmount(2000))
+
+	// confirm clients have bounty
+	ret = vm.ApplyOk(t, v, client1, tokenActorAddr, big.Zero(), builtin.MethodsToken.BalanceOf, &client3)
+	balance = ret.(*abi.TokenAmount)
+	assert.Equal(t, *balance, abi.NewTokenAmount(2000))
 }
 
 func TestGiveToPublicKeyAddress(t *testing.T) {

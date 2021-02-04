@@ -162,7 +162,8 @@ func main() {
 		market.SectorDeals{},
 		market.SectorWeights{},
 		market.DealState{},
-		market.GetActiveDealParams{},
+		market.GetActiveDealsParams{},
+		market.GetActiveDealsReturn{},
 	); err != nil {
 		panic(err)
 	}
@@ -253,6 +254,7 @@ func main() {
 		// method params and returns
 		bounty.ConstructorParams{},
 		bounty.ClaimParams{},
+		bounty.DealBounty{},
 		// other types
 	); err != nil {
 		panic(err)

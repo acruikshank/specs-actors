@@ -40,7 +40,7 @@ func (a Actor) Exports() []interface{} {
 		7:                         a.OnMinerSectorsTerminate,
 		8:                         a.ComputeDataCommitment,
 		9:                         a.CronTick,
-		10:                        a.GetActiveDeal,
+		10:                        a.GetActiveDeals,
 	}
 }
 
@@ -493,12 +493,17 @@ func (a Actor) OnMinerSectorsTerminate(rt Runtime, params *OnMinerSectorsTermina
 	return nil
 }
 
-type GetActiveDealParams struct {
-	DealID abi.DealID
+type GetActiveDealsParams struct {
+	DealIDs []abi.DealID
+}
+
+type GetActiveDealsReturn struct {
+	Proposals []*DealProposal
+	States    []*DealState
 }
 
 // Get a deal by ID. This errors if the deal does not exist or it is not active (has a deal state)
-func (a Actor) GetActiveDeal(rt Runtime, params *GetActiveDealParams) *DealProposal {
+func (a Actor) GetActiveDeals(rt Runtime, params *GetActiveDealsParams) *GetActiveDealsReturn {
 	rt.ValidateImmediateCallerAcceptAny()
 
 	var st State
@@ -509,30 +514,44 @@ func (a Actor) GetActiveDeal(rt Runtime, params *GetActiveDealParams) *DealPropo
 		rt.Abortf(exitcode.ErrIllegalState, "could not load proposals array")
 	}
 
-	deal, found, err := proposals.Get(params.DealID)
-	if err != nil {
-		rt.Abortf(exitcode.ErrIllegalState, "could not retrieve deal %d from proposals array", params.DealID)
-	}
-
-	if !found {
-		rt.Abortf(exitcode.ErrNotFound, "deal not found")
-	}
-
 	states, err := AsDealStateArray(adt.AsStore(rt), st.States)
 	if err != nil {
-		rt.Abortf(exitcode.ErrIllegalState, "could not load deal states array", params.DealID)
+		rt.Abortf(exitcode.ErrIllegalState, "could not load deal states array")
 	}
 
-	_, found, err = states.Get(params.DealID)
-	if err != nil {
-		rt.Abortf(exitcode.ErrIllegalState, "could not retrieve deal state for %d", params.DealID)
+	deals := []*DealProposal{}
+	dealStates := []*DealState{}
+
+	for _, dealID := range params.DealIDs {
+		deal, found, err := proposals.Get(dealID)
+		if err != nil {
+			rt.Abortf(exitcode.ErrIllegalState, "could not retrieve deal %d from proposals array", dealID)
+		}
+
+		if !found {
+			deals = append(deals, nil)
+			dealStates = append(dealStates, nil)
+			continue
+		}
+
+		deals = append(deals, deal)
+
+		state, found, err := states.Get(dealID)
+		if err != nil {
+			rt.Abortf(exitcode.ErrIllegalState, "could not retrieve deal state for %d", dealID)
+		}
+
+		if !found {
+			dealStates = append(dealStates, nil)
+			continue
+		}
+		dealStates = append(dealStates, state)
 	}
 
-	if !found {
-		rt.Abortf(exitcode.ErrNotFound, "deal not active")
+	return &GetActiveDealsReturn{
+		Proposals: deals,
+		States:    dealStates,
 	}
-
-	return deal
 }
 
 func (a Actor) CronTick(rt Runtime, _ *abi.EmptyValue) *abi.EmptyValue {

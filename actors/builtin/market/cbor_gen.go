@@ -7,6 +7,7 @@ import (
 	"io"
 
 	abi "github.com/filecoin-project/go-state-types/abi"
+	market "github.com/filecoin-project/specs-actors/actors/builtin/market"
 	cbg "github.com/whyrusleeping/cbor-gen"
 	xerrors "golang.org/x/xerrors"
 )
@@ -760,30 +761,37 @@ func (t *DealState) UnmarshalCBOR(r io.Reader) error {
 	return nil
 }
 
-var lengthBufGetActiveDealParams = []byte{129}
+var lengthBufGetActiveDealsParams = []byte{129}
 
-func (t *GetActiveDealParams) MarshalCBOR(w io.Writer) error {
+func (t *GetActiveDealsParams) MarshalCBOR(w io.Writer) error {
 	if t == nil {
 		_, err := w.Write(cbg.CborNull)
 		return err
 	}
-	if _, err := w.Write(lengthBufGetActiveDealParams); err != nil {
+	if _, err := w.Write(lengthBufGetActiveDealsParams); err != nil {
 		return err
 	}
 
 	scratch := make([]byte, 9)
 
-	// t.DealID (abi.DealID) (uint64)
-
-	if err := cbg.WriteMajorTypeHeaderBuf(scratch, w, cbg.MajUnsignedInt, uint64(t.DealID)); err != nil {
-		return err
+	// t.DealIDs ([]abi.DealID) (slice)
+	if len(t.DealIDs) > cbg.MaxLength {
+		return xerrors.Errorf("Slice value in field t.DealIDs was too long")
 	}
 
+	if err := cbg.WriteMajorTypeHeaderBuf(scratch, w, cbg.MajArray, uint64(len(t.DealIDs))); err != nil {
+		return err
+	}
+	for _, v := range t.DealIDs {
+		if err := cbg.CborWriteHeader(w, cbg.MajUnsignedInt, uint64(v)); err != nil {
+			return err
+		}
+	}
 	return nil
 }
 
-func (t *GetActiveDealParams) UnmarshalCBOR(r io.Reader) error {
-	*t = GetActiveDealParams{}
+func (t *GetActiveDealsParams) UnmarshalCBOR(r io.Reader) error {
+	*t = GetActiveDealsParams{}
 
 	br := cbg.GetPeeker(r)
 	scratch := make([]byte, 8)
@@ -800,19 +808,160 @@ func (t *GetActiveDealParams) UnmarshalCBOR(r io.Reader) error {
 		return fmt.Errorf("cbor input had wrong number of fields")
 	}
 
-	// t.DealID (abi.DealID) (uint64)
+	// t.DealIDs ([]abi.DealID) (slice)
 
-	{
+	maj, extra, err = cbg.CborReadHeaderBuf(br, scratch)
+	if err != nil {
+		return err
+	}
 
-		maj, extra, err = cbg.CborReadHeaderBuf(br, scratch)
+	if extra > cbg.MaxLength {
+		return fmt.Errorf("t.DealIDs: array too large (%d)", extra)
+	}
+
+	if maj != cbg.MajArray {
+		return fmt.Errorf("expected cbor array")
+	}
+
+	if extra > 0 {
+		t.DealIDs = make([]abi.DealID, extra)
+	}
+
+	for i := 0; i < int(extra); i++ {
+
+		maj, val, err := cbg.CborReadHeaderBuf(br, scratch)
 		if err != nil {
+			return xerrors.Errorf("failed to read uint64 for t.DealIDs slice: %w", err)
+		}
+
+		if maj != cbg.MajUnsignedInt {
+			return xerrors.Errorf("value read for array t.DealIDs was not a uint, instead got %d", maj)
+		}
+
+		t.DealIDs[i] = abi.DealID(val)
+	}
+
+	return nil
+}
+
+var lengthBufGetActiveDealsReturn = []byte{130}
+
+func (t *GetActiveDealsReturn) MarshalCBOR(w io.Writer) error {
+	if t == nil {
+		_, err := w.Write(cbg.CborNull)
+		return err
+	}
+	if _, err := w.Write(lengthBufGetActiveDealsReturn); err != nil {
+		return err
+	}
+
+	scratch := make([]byte, 9)
+
+	// t.Proposals ([]*market.DealProposal) (slice)
+	if len(t.Proposals) > cbg.MaxLength {
+		return xerrors.Errorf("Slice value in field t.Proposals was too long")
+	}
+
+	if err := cbg.WriteMajorTypeHeaderBuf(scratch, w, cbg.MajArray, uint64(len(t.Proposals))); err != nil {
+		return err
+	}
+	for _, v := range t.Proposals {
+		if err := v.MarshalCBOR(w); err != nil {
 			return err
 		}
-		if maj != cbg.MajUnsignedInt {
-			return fmt.Errorf("wrong type for uint64 field")
-		}
-		t.DealID = abi.DealID(extra)
-
 	}
+
+	// t.States ([]*market.DealState) (slice)
+	if len(t.States) > cbg.MaxLength {
+		return xerrors.Errorf("Slice value in field t.States was too long")
+	}
+
+	if err := cbg.WriteMajorTypeHeaderBuf(scratch, w, cbg.MajArray, uint64(len(t.States))); err != nil {
+		return err
+	}
+	for _, v := range t.States {
+		if err := v.MarshalCBOR(w); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func (t *GetActiveDealsReturn) UnmarshalCBOR(r io.Reader) error {
+	*t = GetActiveDealsReturn{}
+
+	br := cbg.GetPeeker(r)
+	scratch := make([]byte, 8)
+
+	maj, extra, err := cbg.CborReadHeaderBuf(br, scratch)
+	if err != nil {
+		return err
+	}
+	if maj != cbg.MajArray {
+		return fmt.Errorf("cbor input should be of type array")
+	}
+
+	if extra != 2 {
+		return fmt.Errorf("cbor input had wrong number of fields")
+	}
+
+	// t.Proposals ([]*market.DealProposal) (slice)
+
+	maj, extra, err = cbg.CborReadHeaderBuf(br, scratch)
+	if err != nil {
+		return err
+	}
+
+	if extra > cbg.MaxLength {
+		return fmt.Errorf("t.Proposals: array too large (%d)", extra)
+	}
+
+	if maj != cbg.MajArray {
+		return fmt.Errorf("expected cbor array")
+	}
+
+	if extra > 0 {
+		t.Proposals = make([]*market.DealProposal, extra)
+	}
+
+	for i := 0; i < int(extra); i++ {
+
+		var v market.DealProposal
+		if err := v.UnmarshalCBOR(br); err != nil {
+			return err
+		}
+
+		t.Proposals[i] = &v
+	}
+
+	// t.States ([]*market.DealState) (slice)
+
+	maj, extra, err = cbg.CborReadHeaderBuf(br, scratch)
+	if err != nil {
+		return err
+	}
+
+	if extra > cbg.MaxLength {
+		return fmt.Errorf("t.States: array too large (%d)", extra)
+	}
+
+	if maj != cbg.MajArray {
+		return fmt.Errorf("expected cbor array")
+	}
+
+	if extra > 0 {
+		t.States = make([]*DealState, extra)
+	}
+
+	for i := 0; i < int(extra); i++ {
+
+		var v DealState
+		if err := v.UnmarshalCBOR(br); err != nil {
+			return err
+		}
+
+		t.States[i] = &v
+	}
+
 	return nil
 }

@@ -3,10 +3,7 @@ package bounty
 import (
 	addr "github.com/filecoin-project/go-address"
 	"github.com/filecoin-project/go-state-types/abi"
-	"github.com/filecoin-project/specs-actors/v3/actors/builtin"
-	"github.com/filecoin-project/specs-actors/v3/actors/util/adt"
 	cid "github.com/ipfs/go-cid"
-	"golang.org/x/xerrors"
 )
 
 type State struct {
@@ -19,29 +16,35 @@ type State struct {
 	// If Token present, bounty will be paid from this account (bounty actor must be approved).
 	From addr.Address
 
-	// Amount to pay for each token
+	// Total amount to pay for storage time
 	Value abi.TokenAmount
 
-	// Number of remaining bounties to pay
-	Bounties uint64
+	// Duration amount of time covered by bounty
+	Duration abi.ChainEpoch
 
-	// store which bounties have already been paid
-	Paid cid.Cid // Map, HAMT[DealID]TokenAmount
+	// Number of remaining bounties to pay
+	MaxActiveDeals uint64
+
+	// stores active deal ids and last epoch for which they were paid
+	ActiveDeals []DealBounty
 }
 
-func ConstructState(store adt.Store, pieceCid cid.Cid, token *addr.Address, from addr.Address, value abi.TokenAmount, bounties uint64) (*State, error) {
-	// create empty map for paid
-	paidCid, err := adt.StoreEmptyMap(store, builtin.DefaultHamtBitwidth)
-	if err != nil {
-		return nil, xerrors.Errorf("failed to create paid map: %w", err)
-	}
+type DealBounty struct {
+	DealID   abi.DealID
+	Client   addr.Address
+	LastPaid abi.ChainEpoch
+	Start    abi.ChainEpoch
+	DealEnd  abi.ChainEpoch
+}
 
+func ConstructState(pieceCid cid.Cid, token *addr.Address, from addr.Address, value abi.TokenAmount, duration abi.ChainEpoch, bounties uint64) (*State, error) {
 	return &State{
-		PieceCid: pieceCid,
-		Token:    token,
-		From:     from,
-		Value:    value,
-		Bounties: bounties,
-		Paid:     paidCid,
+		PieceCid:       pieceCid,
+		Token:          token,
+		From:           from,
+		Value:          value,
+		Duration:       duration,
+		MaxActiveDeals: bounties,
+		ActiveDeals:    []DealBounty{},
 	}, nil
 }

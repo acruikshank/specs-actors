@@ -155,6 +155,10 @@ func (a Actor) Claim(rt runtime.Runtime, params *ClaimParams) *abi.EmptyValue {
 			dealProposal := deals.Proposals[len(st.ActiveDeals)]
 			dealState := deals.States[len(st.ActiveDeals)]
 
+			if !dealProposal.PieceCID.Equals(st.PieceCid) {
+				rt.Abortf(exitcode.ErrNotFound, "proposed bounty deal %d is for wrong piece cid", dealProposal.PieceCID)
+			}
+
 			if dealProposal == nil {
 				rt.Abortf(exitcode.ErrNotFound, "proposed bounty deal %d not found", params.NewDealID)
 			}
